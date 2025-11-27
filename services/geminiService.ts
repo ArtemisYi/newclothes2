@@ -8,9 +8,17 @@ const cleanBase64 = (dataUrl: string) => {
 // Initialize as null to enforce manual key setting
 let ai: GoogleGenAI | null = null;
 
-export const setGeminiApiKey = (key: string) => {
+export const setGeminiApiKey = (key: string, baseUrl?: string) => {
   if (!key) return;
-  ai = new GoogleGenAI({ apiKey: key });
+  
+  const options: any = { apiKey: key };
+  if (baseUrl) {
+    // Remove trailing slash if present to avoid double slashes in SDK path construction
+    const cleanUrl = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
+    options.baseUrl = cleanUrl;
+  }
+  
+  ai = new GoogleGenAI(options);
 };
 
 // Helper to check if AI is initialized

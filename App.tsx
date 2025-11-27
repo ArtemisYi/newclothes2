@@ -1,4 +1,3 @@
-
 import React, { useState, useRef } from 'react';
 import { analyzeClothingImage, generateModifiedImage, removeBackground, reanalyzeSpecificAttributes, setGeminiApiKey } from './services/geminiService';
 import { AnalysisResult, GalleryItem, Attribute, MarketSettings, ModificationOption } from './types';
@@ -26,7 +25,8 @@ import {
   RectangleStackIcon,
   CursorArrowRaysIcon,
   PaintBrushIcon,
-  KeyIcon
+  KeyIcon,
+  GlobeAltIcon
 } from '@heroicons/react/24/outline';
 import { CheckCircleIcon as CheckCircleIconSolid } from '@heroicons/react/24/solid';
 
@@ -35,6 +35,7 @@ type Tab = 'design' | 'model';
 const App: React.FC = () => {
   // --- API Key State ---
   const [apiKeyInput, setApiKeyInput] = useState('');
+  const [baseUrlInput, setBaseUrlInput] = useState('');
   const [isApiKeySet, setIsApiKeySet] = useState(false);
 
   // --- Navigation State ---
@@ -90,9 +91,12 @@ const App: React.FC = () => {
   // --- Handlers ---
 
   const handleSetApiKey = () => {
-    if (apiKeyInput.trim()) {
-      setGeminiApiKey(apiKeyInput.trim());
+    const key = apiKeyInput.trim().replace(/\s/g, ''); // Remove all spaces
+    const url = baseUrlInput.trim();
+    if (key) {
+      setGeminiApiKey(key, url || undefined);
       setIsApiKeySet(true);
+      resetAll(); // Reset state to ensure fresh start with new key
     }
   };
 
@@ -157,7 +161,7 @@ const App: React.FC = () => {
       const result = await analyzeClothingImage(originalImage, marketSettings);
       setAnalysisResult(result);
     } catch (error) {
-      alert("分析图片失败，请检查 API Key 或网络连接。");
+      alert("分析图片失败，请检查 API Key / Base URL 或网络连接。");
       setCurrentStep(2); // Go back if failed
       console.error(error);
     } finally {
@@ -420,29 +424,46 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-slate-50 text-slate-800 font-sans">
       {!isApiKeySet && (
         <div className="fixed inset-0 z-[100] bg-slate-900/90 backdrop-blur-md flex items-center justify-center p-4 animate-fade-in">
-           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 text-center relative overflow-hidden">
+           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative overflow-hidden">
               <div className="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-indigo-500 to-purple-600"></div>
               <div className="w-16 h-16 bg-indigo-50 rounded-full flex items-center justify-center mx-auto mb-6 text-indigo-600">
                  <KeyIcon className="w-8 h-8" />
               </div>
-              <h2 className="text-2xl font-bold text-slate-800 mb-2">API Key Required</h2>
-              <p className="text-slate-500 mb-8 text-sm">
-                本应用使用 Google Gemini 模型。请输入您的 API Key 以继续。<br/>
-                <span className="text-xs text-slate-400">(Key 仅保存在本地内存中，刷新失效)</span>
+              <h2 className="text-2xl font-bold text-slate-800 mb-2 text-center">API Key Authentication</h2>
+              <p className="text-slate-500 mb-6 text-sm text-center">
+                本应用需配置 Google Gemini API Key。
+                <br/>支持官方 Key (AIza...) 或 OpenAI 格式中转 Key (sk-...)。
               </p>
               
-              <div className="relative mb-6">
-                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                   <KeyIcon className="h-5 w-5 text-slate-400" />
-                 </div>
-                 <input 
-                   type="password"
-                   value={apiKeyInput}
-                   onChange={(e) => setApiKeyInput(e.target.value)}
-                   placeholder="Enter Gemini API Key..."
-                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono text-sm"
-                   onKeyDown={(e) => e.key === 'Enter' && handleSetApiKey()}
-                 />
+              <div className="space-y-4 mb-6">
+                <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <KeyIcon className="h-5 w-5 text-slate-400" />
+                   </div>
+                   <input 
+                     type="password"
+                     value={apiKeyInput}
+                     onChange={(e) => setApiKeyInput(e.target.value)}
+                     placeholder="输入 API Key (sk-...)"
+                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono text-sm"
+                   />
+                </div>
+
+                <div className="relative">
+                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                     <GlobeAltIcon className="h-5 w-5 text-slate-400" />
+                   </div>
+                   <input 
+                     type="text"
+                     value={baseUrlInput}
+                     onChange={(e) => setBaseUrlInput(e.target.value)}
+                     placeholder="代理地址 (可选, 如 https://api.openai.com)"
+                     className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 outline-none transition-all font-mono text-sm"
+                   />
+                   <p className="text-[10px] text-slate-400 mt-1 pl-1">
+                     * 如果使用 'sk-' 开头的 Key，通常需要配置中转商提供的 Base URL。
+                   </p>
+                </div>
               </div>
               
               <button 
@@ -450,12 +471,8 @@ const App: React.FC = () => {
                  disabled={!apiKeyInput.trim()}
                  className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white font-bold rounded-xl shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
               >
-                 进入应用
+                 验证并进入
               </button>
-              
-              <div className="mt-6 text-xs text-slate-400">
-                 没有 API Key? <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" className="text-indigo-600 hover:underline">去申请一个</a>
-              </div>
            </div>
         </div>
       )}
